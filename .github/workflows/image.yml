@@ -43,5 +43,5 @@ jobs:
           echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USERNAME}" --password-stdin
       - name: Run buildx and push
         run: |
-          docker buildx build -t penitence/ddns:${{ steps.args.outputs.releaseName }} ${{ steps.args.outputs.buildx_args }}
+          docker buildx build -t penitence/iparse:${{ steps.args.outputs.releaseName }} ${{ steps.args.outputs.buildx_args }}
 
