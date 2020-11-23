@@ -7,6 +7,7 @@ import (
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	goyaml "gopkg.in/yaml.v2"
+	"io"
 	"io/ioutil"
 	"k8s.io/client-go/util/jsonpath"
 	"os"
@@ -18,33 +19,44 @@ var buildStamp = ""
 
 func main() {
 
+	fmt.Printf("Git Commit : %s\n", gitCommit)
+	fmt.Printf("Build Stamp : %s\n", buildStamp)
+
 	if len(os.Args) == 1 {
 		log.Fatal("请输入文件路径")
 	}
 
-	fmt.Printf("Git Commit : %s\n", gitCommit)
-	fmt.Printf("Build Stamp : %s\n", buildStamp)
-
 	filePath := os.Args[1]
 
-	log.Infof("file path: %v", filePath)
-
-	info, err := os.Stat(filePath)
-
-	if err != nil {
-		log.Fatalf("获取路径信息失败:%v", err)
-	}
-
-	if info.IsDir() {
-		filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
-			// 不再遍历
-			if !info.IsDir() {
-				fileParse(path)
-			}
-			return nil
-		})
+	if filePath == "-" {
+		log.Infof("read content in stdin")
+		info, err := os.Stdin.Stat()
+		if err != nil {
+			log.Fatalf("获取输入流失败:%v", err)
+		}
+		if info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0 {
+			log.Fatalf("The command is intended to work with pipes.\n\"Usage: fortune | iparse\n")
+		}
+		contentParse(os.Stdin)
 	} else {
-		fileParse(filePath)
+		log.Infof("file path: %v", filePath)
+		info, err := os.Stat(filePath)
+
+		if err != nil {
+			log.Fatalf("获取路径信息失败:%v", err)
+		}
+
+		if info.IsDir() {
+			filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+				// 不再遍历
+				if !info.IsDir() {
+					fileParse(path)
+				}
+				return nil
+			})
+		} else {
+			fileParse(filePath)
+		}
 	}
 }
 
@@ -57,7 +69,12 @@ func fileParse(filePath string) {
 
 	r := bytes.NewReader(context)
 
-	dec := goyaml.NewDecoder(r)
+	contentParse(r)
+}
+
+func contentParse(reader io.Reader) {
+
+	dec := goyaml.NewDecoder(reader)
 
 	var doc interface{}
 
