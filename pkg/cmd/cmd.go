@@ -19,8 +19,8 @@ var buildStamp = ""
 
 func main() {
 
-	fmt.Printf("Git Commit : %s\n", gitCommit)
-	fmt.Printf("Build Stamp : %s\n", buildStamp)
+	log.Infof("Git Commit : %s", gitCommit)
+	log.Infof("Build Stamp : %s", buildStamp)
 
 	if len(os.Args) == 1 {
 		log.Fatal("请输入文件路径")
@@ -78,6 +78,7 @@ func contentParse(reader io.Reader) {
 
 	var doc interface{}
 
+	var data []string
 	for dec.Decode(&doc) == nil {
 		docBytes, err := goyaml.Marshal(doc)
 		printError("marshal document error", err)
@@ -86,11 +87,15 @@ func contentParse(reader io.Reader) {
 
 		printError("convert json to interface fail : ", json.Unmarshal(jsonDoc, &jsonInterface))
 
-		parse(jsonInterface)
+		data = append(data, parse(jsonInterface)...)
+	}
+	result := removeDuplicationMap(data)
+	for _, s := range result {
+		os.Stdout.WriteString(fmt.Sprintf("%s\n", s))
 	}
 }
 
-func parse(jsonDoc interface{}) {
+func parse(jsonDoc interface{}) []string {
 	p := jsonpath.New("image")
 
 	if err := p.Parse("{..image}"); err != nil {
@@ -100,18 +105,37 @@ func parse(jsonDoc interface{}) {
 	ress, err := p.FindResults(jsonDoc)
 
 	if err != nil {
-		return
+		return nil
 	}
 
+	var data []string
 	for _, res := range ress {
 		for _, filed := range res {
-			_, _ = os.Stdout.WriteString(fmt.Sprintf("%s\n", filed.Interface().(string)))
+			img := filed.Interface().(string)
+			data = append(data, img)
 		}
 	}
+	return data
 }
 
 func printError(msg string, err error) {
 	if err != nil {
 		log.Fatal(msg, err)
 	}
+}
+
+func removeDuplicationMap(arr []string) []string {
+	set := make(map[string]struct{}, len(arr))
+	j := 0
+	for _, v := range arr {
+		_, ok := set[v]
+		if ok {
+			continue
+		}
+		set[v] = struct{}{}
+		arr[j] = v
+		j++
+	}
+
+	return arr[:j]
 }
